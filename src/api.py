@@ -63,7 +63,8 @@ def download_video():
             video_url,
             '-o', os.path.join(output_dir, '%(title)s.%(ext)s'),
             '--no-warnings',
-            '--quiet'
+            '--quiet',
+            '--cookies', '/app/secrets/youtube-cookies.txt'
         ]
         
         # Agregar opción de calidad si no es 'best'

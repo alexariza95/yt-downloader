@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copia código de la API
 COPY src/ .
+COPY scripts/cookies.txt /app/scripts/cookies.txt
 
 # Puerto
 EXPOSE 8080
