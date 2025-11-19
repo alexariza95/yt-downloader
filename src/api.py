@@ -172,6 +172,8 @@ def get_file_info(job_id):
         storage_client = storage.Client()
         bucket = storage_client.bucket(GCS_BUCKET_NAME)
         blob = bucket.blob(object_name)
+        
+        file_path = os.path.join(output_dir, filename)
         file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
 
         public_url = blob.public_url 
