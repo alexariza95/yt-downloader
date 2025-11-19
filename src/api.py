@@ -17,7 +17,7 @@ GCS_PREFIX = "yt-downloads"
 SIGNED_URL_EXPIRATION = 3600  # 1 hora
 
 def upload_to_gcs(file_path: str, job_id: str):
-    """Sube el archivo descargado a Cloud Storage y devuelve (gcs_path, signed_url)."""
+    """Sube el archivo descargado a Cloud Storage y devuelve (gcs_path, public_url)."""
     file_name = os.path.basename(file_path)
     object_name = f"{GCS_PREFIX}/{job_id}/{file_name}"  # p.ej. yt-downloads/<job_id>/video.mp4
 
@@ -29,17 +29,15 @@ def upload_to_gcs(file_path: str, job_id: str):
 
     # Sube el archivo
     blob.upload_from_filename(file_path)
+    blob.make_public()
+
     gcs_path = f"gs://{GCS_BUCKET_NAME}/{object_name}"
 
-    # Genera URL firmada temporal para descarga
-    signed_url = blob.generate_signed_url(
-        version="v4",
-        expiration=SIGNED_URL_EXPIRATION,
-        method="GET",
-    )
+    # Genera URL publica del video
+    public_url = blob.public_url
 
     print(f"[{job_id}] Subida completada. GCS: {gcs_path}", flush=True)
-    return gcs_path, signed_url
+    return gcs_path, public_url
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -169,14 +167,21 @@ def get_file_info(job_id):
             return jsonify({'error': 'No hay archivos para este job'}), 404
         
         filename = files[0]
-        file_path = os.path.join(output_dir, filename)
+        object_name = f"{GCS_PREFIX}/{job_id}/{filename}"
+
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(GCS_BUCKET_NAME)
+        blob = bucket.blob(object_name)
         file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+        public_url = blob.public_url 
         
         return jsonify({
             'job_id': job_id,
             'filename': filename,
-            'file_path': file_path,
-            'file_size_mb': round(file_size_mb, 2)
+            'file_size_mb': round(file_size_mb, 2),
+            'gcs_path': f"gs://{GCS_BUCKET_NAME}/{object_name}",
+            'public_url': public_url
         }), 200
         
     except Exception as e:
