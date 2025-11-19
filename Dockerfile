@@ -14,10 +14,10 @@ WORKDIR /app
 # Copia requirements e instala
 COPY scripts/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+COPY scripts/cookies.txt /app/scripts/cookies.txt
 
 # Copia código de la API
 COPY src/ .
-COPY scripts/cookies.txt /app/scripts/cookies.txt
 
 # Puerto
 EXPOSE 8080

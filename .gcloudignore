@@ -1,0 +1,11 @@
+# Ignora lo mismo que Git, pero permite el cookies.txt explícitamente
+
+# Ignora todo lo de scripts...
+scripts/*
+
+# ...pero NO este fichero
+!scripts/requirements.txt
+!scripts/cookies.txt
+
+.git
+.gitignore
