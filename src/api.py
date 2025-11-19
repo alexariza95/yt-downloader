@@ -4,12 +4,42 @@ import os
 import uuid
 import tempfile
 from pathlib import Path
+from google.cloud import storage
+
 
 app = Flask(__name__)
 
 # Configuración
 TEMP_DIR = tempfile.gettempdir()
 MAX_VIDEO_SIZE_GB = 5  # Límite de tamaño
+GCS_BUCKET_NAME = "yt-downloader-downloads-euwest1"
+GCS_PREFIX = "yt-downloads"
+SIGNED_URL_EXPIRATION = 3600  # 1 hora
+
+def upload_to_gcs(file_path: str, job_id: str):
+    """Sube el archivo descargado a Cloud Storage y devuelve (gcs_path, signed_url)."""
+    file_name = os.path.basename(file_path)
+    object_name = f"{GCS_PREFIX}/{job_id}/{file_name}"  # p.ej. yt-downloads/<job_id>/video.mp4
+
+    print(f"[{job_id}] Subiendo a GCS: gs://{GCS_BUCKET_NAME}/{object_name}", flush=True)
+
+    client = storage.Client()
+    bucket = client.bucket(GCS_BUCKET_NAME)
+    blob = bucket.blob(object_name)
+
+    # Sube el archivo
+    blob.upload_from_filename(file_path)
+    gcs_path = f"gs://{GCS_BUCKET_NAME}/{object_name}"
+
+    # Genera URL firmada temporal para descarga
+    signed_url = blob.generate_signed_url(
+        version="v4",
+        expiration=SIGNED_URL_EXPIRATION,
+        method="GET",
+    )
+
+    print(f"[{job_id}] Subida completada. GCS: {gcs_path}", flush=True)
+    return gcs_path, signed_url
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -95,6 +125,9 @@ def download_video():
         filename = files[0]
         file_path = os.path.join(output_dir, filename)
         file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+        # Subir a Cloud Storage
+        gcs_path, download_url = upload_to_gcs(file_path, job_id)
         
         # Verifica límite de tamaño
         if file_size_mb > MAX_VIDEO_SIZE_GB * 1024:
@@ -111,8 +144,9 @@ def download_video():
             'job_id': job_id,
             'status': 'success',
             'filename': filename,
-            'file_path': file_path,
-            'file_size_mb': round(file_size_mb, 2)
+            'file_size_mb': round(file_size_mb, 2),
+            'gcs_path': gcs_path,
+            'download_url': download_url
         }), 200
         
     except subprocess.TimeoutExpired:
